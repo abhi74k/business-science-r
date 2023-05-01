@@ -112,32 +112,75 @@ sales_by_year %>%
 # Group by year, category 2 and compute sum of sales
 # year, category 2, sales
 books_year_category2_grouped_tbl <- books_ordersline_wrangled %>% 
-  
+    
+  # Select the order date, category_2 and total price columns
   select(order_date, category_2, total_price) %>%
   
+  # Add a new column year
   mutate(year = year(order_date)) %>%
   
+  # Group by year and category_2 and summarize the sales
   group_by(year, category_2) %>%
   summarise(sales = sum(total_price)) %>%
   ungroup() %>%
   
+  # Format sales as dollars
   mutate(sales_text = scales::dollar(sales)) 
 
+# Stacked bar chart. This is useful when second categorical variables
+# has to be visualized as proportions for each value of first categorical 
+# variable.
 books_year_category2_grouped_tbl %>%
+  
+  # x: first categorical variable 
+  # fill: second categorical variable
+  # y: continuous value(width of the second categorical variable)
   ggplot(aes(x = year, y = sales, fill = category_2)) + 
+  
+  # bar chat
   geom_col() + 
+  
+  # y axis is formatted as dollars
   scale_y_continuous(labels = scales::dollar) + 
+  
+  # tidyquant theme
   theme_tq() + 
+  
+  # If fill is used in a aes() of ggplot, it can be formatted using this API
   scale_fill_tq() + 
+  
+  # Add labels for the plot
   labs(x = "", fill = "Product category") 
   
+# Bar chart per category
 books_year_category2_grouped_tbl %>%
+  
+  # x: first categorical variable 
+  # fill: second categorical variable
+  # y: continuous value(width of the second categorical variable)
   ggplot(aes(x = year, y = sales, fill = category_2)) + 
+  
+  # bar chart
   geom_col() + 
+  
+  # y axis is formatted as dollars
   scale_y_continuous(labels = scales::dollar) + 
+  
+  # tidyquant theme
   theme_tq() + 
+  
+  # If fill is used in a aes() of ggplot, it can be formatted using this API
   scale_fill_tq() + 
+  
+  # A plot is created for each element in category_2
+  # x:year
+  # y:sales
+  # geom_col creates bar chart per plo
   facet_wrap("category_2", scales="free") +
+  
+  # Trend line
   geom_smooth(method = "lm", se=FALSE) + 
+  
+  # Labels for plot
   labs(x = "", fill = "Product category") 
 
