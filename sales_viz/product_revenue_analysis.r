@@ -1,6 +1,7 @@
 library("readxl")
 library("tidyverse")
 library("tidyquant")
+library("writexl")
 
 # Read excel ---
 bikes_tbl <- read_excel("data/bike_sales/data_raw/bikes.xlsx")
@@ -184,3 +185,17 @@ books_year_category2_grouped_tbl %>%
   # Labels for plot
   labs(x = "", fill = "Product category") 
 
+# Create a directory 
+fs::dir_create("data/bike_sales/data_wrangled/")
+
+# Write it out excel
+books_ordersline_wrangled %>% 
+  write_xlsx("data/bike_sales/data_wrangled/bike_sales_wrangled.xlsx")
+
+# write it out as csv
+books_ordersline_wrangled %>%
+  write_csv("data/bike_sales/data_wrangled/bike_sales_wrangled.csv")
+
+# write it out as RDS
+books_ordersline_wrangled %>%
+  write_rds("data/bike_sales/data_wrangled/bike_sales_wrangled.rds")
