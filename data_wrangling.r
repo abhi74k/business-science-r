@@ -56,3 +56,85 @@ bikes_tbl %>%
 bikes_tbl %>%
   select(model, price) %>%
   arrange(desc(price))
+
+
+### Working with rows --
+
+bikes_tbl %>%
+  slice(1:10)
+
+bikes_tbl %>%
+  filter(price > 5000)
+
+bikes_tbl %>%
+  filter(price > mean(price))
+
+bikes_tbl %>%
+  filter(price > 5000 | price < 1000)
+
+bikes_tbl %>%
+  arrange(desc(price)) %>%
+  slice(1:5)
+
+bikes_tbl %>%
+  arrange(price) %>%
+  slice(1:5)
+
+bikes_tbl %>%
+  slice((nrow(.)-5):nrow(.))
+
+bikes_tbl %>%
+  filter(price > 5000, model %>% str_detect("Super"))
+
+
+### Working in categories
+
+bike_orderlines_tbl %>%
+  filter(category_1 == "Mountain")
+
+bike_orderlines_tbl %>%
+  filter(category_1 != "Mountain")
+
+bike_orderlines_tbl %>%
+  filter(category_1 %in% c("Road", "Mountain"))
+
+bike_orderlines_tbl %>%
+  filter(!(category_1 %in% c("Road")))
+
+
+bike_orderlines_tbl %>%
+  distinct(category_1)
+
+
+bike_orderlines_tbl %>%
+  distinct(model, city, state)
+
+
+# Adding boolean column
+bike_orderlines_prices_tbl <- bike_orderlines_tbl %>%
+  select(model, quantity, price, total_price) %>%
+  mutate(is_supersix = model %>% str_to_lower() %>% str_detect("supersix")) %>%
+  filter(is_supersix) %>%
+  glimpse()
+
+# ntile function: To convert continuous value to bins
+bike_orderlines_prices_tbl %>%
+  mutate(price_bin = price %>% ntile(2))
+
+# Numeric to categorical 
+bike_orderlines_tbl %>%
+  select(model, quantity, price, total_price) %>%
+  mutate(total_price_binned = case_when(
+    total_price < total_price %>% quantile(0.25) ~ 'Low', 
+    total_price > total_price %>% quantile(0.75) ~ 'High',
+    TRUE ~ 'Med'
+  )) %>%
+  glimpse()
+
+#Text to categorical
+bike_orderlines_tbl %>%
+select(model, quantity, price, total_price) %>%
+mutate(model_category = case_when(
+  model %>% str_to_lower() %>% str_detect("supersix") ~ "Supersix", 
+  model %>% str_to_lower() %>% str_detect("jekyll") ~ "Jekyll", 
+))
