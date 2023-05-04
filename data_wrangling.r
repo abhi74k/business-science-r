@@ -138,3 +138,94 @@ mutate(model_category = case_when(
   model %>% str_to_lower() %>% str_detect("supersix") ~ "Supersix", 
   model %>% str_to_lower() %>% str_detect("jekyll") ~ "Jekyll", 
 ))
+
+# Summary functions
+bike_orderlines_tbl %>%
+  group_by(category_1, category_2) %>%
+  summarise(
+    count = n(), ## Gives the current group size
+    avg = mean(total_price),
+    med = median(total_price),
+    sd = sd(total_price), 
+    min = min(total_price),
+    max = max(total_price)
+  ) %>%
+  arrange(desc(count))
+
+# summarize all - detect missing values
+bike_orderlines_missing_tbl <- bike_orderlines_tbl %>%
+  mutate(
+   total_price = c(rep(NA, 4), total_price[5:nrow(.)])
+  )
+
+# Detect number/percentage of missing values
+bike_orderlines_missing_tbl %>%
+  summarise_all(function(x) sum(is.na(x)))
+
+bike_orderlines_missing_tbl %>%
+  summarise_all(~ sum(is.na(.)))
+
+bike_orderlines_missing_tbl %>%
+  summarise_all(~ sum(is.na(.)) / length(.))
+
+# Handling missing values
+
+# Remove NA rows
+
+bike_orderlines_missing_tbl %>%
+  filter(!is.na(total_price))
+
+bike_orderlines_missing_tbl %>%
+  filter(!is.na(total_price))
+
+# Replace NA 
+
+bike_orderlines_missing_tbl %>%
+  replace_na(list(total_price = 0, quantity = 0))
+
+bike_orderlines_missing_tbl %>%
+  mutate(total_price = total_price %>% replace_na(0))
+
+bike_orderlines_missing_tbl %>%
+  select(total_price) %>% replace_na(list(total_price = 0))
+  
+# Rename column 
+bike_orderlines_missing_tbl %>%
+  rename(
+    sales = total_price,
+    bike_category = category_1
+  )
+
+# Rename all columns
+bike_orderlines_tbl %>%
+  group_by(category_1, category_2) %>%
+  summarise(
+    sales = sum(total_price)
+  ) %>%
+  ungroup() %>%
+  arrange(desc(sales)) %>%
+  set_names(c("Bike Category", "Sub Bike Category", "Revenue"))
+
+# Remove underscore from column names
+bike_orderlines_tbl %>%
+  group_by(category_1, category_2) %>%
+  summarise(
+    sales = sum(total_price)
+  ) %>%
+  ungroup() %>%
+  arrange(desc(sales)) %>%
+  set_names(names(.) %>% str_replace('_', ' ') %>% str_to_title())
+
+# Pivoting 
+# Spread : Long to wide (Reader friendly)
+# Gather : Wide to long (For fitting models i.e one column contains all categories)
+
+bike_shop_revenue <- bike_orderlines_tbl %>%
+  select(category_1, category_2, total_price) %>%
+  group_by(category_1, category_2) %>%
+  summarise(total_price = sum(total_price)) %>%
+  set_names(c("Bikeshop name", "Product", "Revenue"))
+
+bike_shop_revenue %>%
+  spread(key = "Bikeshop name", value = Revenue)
+
