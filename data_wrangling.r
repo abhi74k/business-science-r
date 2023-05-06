@@ -1,4 +1,5 @@
 library(tidyverse)
+library(lubridate)
 
 
 bikes_tbl <- read_excel("data/bike_sales/data_raw/bikes.xlsx")
@@ -229,3 +230,240 @@ bike_shop_revenue <- bike_orderlines_tbl %>%
 bike_shop_revenue %>%
   spread(key = "Bikeshop name", value = Revenue)
 
+
+# Joining data
+
+left_join(orderlines_tbl, bikes_tbl, by = c("product.id" = "bike.id"))
+
+
+# bind_columns
+orderlines_tbl %>%
+  select(-order.id) %>%
+  bind_cols(orderlines_tbl %>% select(order.id))
+
+
+#bind rows
+train_tbl <- orderlines_tbl %>%
+  slice(1:(nrow(.)/2))
+
+test_tbl <- orderlines_tbl %>%
+  slice((nrow(.)/2):nrow(.))
+
+train_tbl %>% 
+  bind_rows(test_tbl)
+
+# separate & unite
+
+bike_orderlines_tbl %>%
+  select(order_date) %>%
+  mutate(order_date = as.character(order_date)) %>%
+  separate(order_date, into=c("year", "month", "day"), sep='-', remove=FALSE) %>%
+  mutate(
+    year  = as.double(year), 
+    month = as.double(month), 
+    day   = as.double(day)
+  ) %>%
+  unite(order_date_unified, year, month, day, remove=FALSE, sep='-') %>%
+  mutate(
+    order_date_unified = as.Date(order_date_unified)
+  )
+
+# lubridate ----
+
+"2023-05-05" %>% ymd()
+"2023-05-05 16:00:00" %>% ymd_hms(tz = 'America/New_York')
+"1 Feb, 2023" %>% dmy()
+
+orderlines_tbl %>%
+  select(order.date) %>%
+  mutate(order_date_chr = as.character(order.date)) %>%
+  mutate(order_date_chr = order_date_chr %>% str_c(" 13:05:30")) %>%
+  mutate(order_date_chr = order_date_chr %>% ymd_hms()) %>%
+  mutate(year = order_date_chr %>% year()) %>%
+  mutate(month = order_date_chr %>% month(label = TRUE)) %>%
+  mutate(day = order_date_chr %>% day()) %>%
+  mutate(hour = order_date_chr %>% hour()) %>%
+  mutate(min = order_date_chr %>% minute()) %>%
+  mutate(secs = order_date_chr %>% second()) %>%
+  mutate(order_date_chr_new = str_c(as.character(year), "-", as.character(as.integer(month)), "-", as.character(day))) 
+
+# Current time
+now()
+
+# Today's date
+today()
+
+# period(accounts for leap year etc)
+"20 Feb 2024" %>% dmy() + days(10)
+"20 Feb 2024" %>% dmy() + ddays(10)
+
+orderlines_tbl %>%
+  mutate(delivery_date = now()) %>%
+  mutate(elapsed_days = interval(order.date, delivery_date) / ddays(1)) %>%
+  mutate(elapsed_months = interval(order.date, delivery_date) / dmonths(1)) %>%
+  glimpse()
+
+# Time series aggregation ----
+
+# Aggregated total price by year
+
+bike_orderlines_tbl %>%
+  select(order_date, total_price) %>%
+  mutate(
+    order_date = as.Date(order_date), 
+    year = year(order_date), 
+    month = month(order_date)
+  ) %>%
+  group_by(year) %>%
+  summarise(sales = sum(total_price)) %>%
+  ungroup() %>%
+  mutate(sales =  scales::dollar(sales))
+
+# Aggregated total price by month
+
+bike_orderlines_tbl %>%
+  select(order_date, total_price) %>%
+  mutate(
+    order_date = as.Date(order_date), 
+    year = year(order_date), 
+    month = month(order_date, label = TRUE)
+  ) %>%
+  group_by(month) %>%
+  summarise(sales = sum(total_price)) %>%
+  ungroup() %>%
+  mutate(sales =  scales::dollar(sales))
+
+# Aggregate by year month using floor_date()
+
+bike_orderlines_tbl %>%
+  
+  select(order_date, total_price) %>%
+  
+  mutate(ym = floor_date(order_date,  unit = "month")) %>%
+  
+  group_by(ym) %>%
+  summarise(sales = sum(total_price)) %>%
+  ungroup() %>%
+  
+  mutate(sales = scales::dollar(sales)) %>%
+  View()
+
+# Lead(Push up) & Lag(Push down) operators
+
+# day over day Pct change 
+bike_orderlines_tbl %>%
+  select(order_date, total_price) %>%
+  mutate(total_price_lag_1 = lag(total_price, 1)) %>%
+  mutate(total_price_lag_1 = case_when(
+    is.na(total_price_lag_1) ~ total_price,
+    TRUE ~ total_price_lag_1
+  )) %>%
+  mutate(
+    pct_diff = (total_price - total_price_lag_1) / (total_price_lag_1)
+  ) %>%
+  mutate(
+    pct_diff = scales::percent(pct_diff, 0.01)
+  )
+  
+# month over month Pct change 
+bike_orderlines_tbl %>%
+  
+  select(order_date, total_price) %>%
+  
+  mutate(ym = floor_date(order_date,  unit = "month")) %>%
+  
+  group_by(ym) %>%
+  summarise(sales = sum(total_price)) %>%
+  ungroup() %>%
+  
+  mutate(sales_lag_1 = lag(sales, 1)) %>%
+  mutate(sales_lag_1 = case_when(
+    is.na(sales_lag_1) ~ sales,
+    TRUE ~ sales_lag_1
+  )) %>%
+  
+  mutate(
+    pct_diff = (sales - sales_lag_1) / (sales_lag_1)
+  ) %>%
+  mutate(
+    pct_diff = scales::percent(pct_diff, 0.01)
+  )
+
+
+# Pct change year or year since inception
+bike_orderlines_tbl %>%
+  
+  select(order_date, total_price) %>%
+  
+  mutate(year = floor_date(order_date,  unit = "year")) %>%
+  
+  group_by(year) %>%
+  summarise(sales = sum(total_price)) %>%
+  ungroup() %>%
+  
+  mutate(
+    pct_diff = (sales - first(sales)) / (first(sales))
+  ) %>%
+  mutate(
+    pct_diff = scales::percent(pct_diff, 0.1)
+  )
+
+# Pct change month over month measured from start of the year. 
+# IMPORTANT use of group by function 
+
+bike_orderlines_tbl %>%
+  
+  select(order_date, total_price) %>%
+  
+  mutate(ym = floor_date(order_date,  unit = "month")) %>%
+  
+  group_by(ym) %>%
+  summarise(sales = sum(total_price)) %>%
+  ungroup() %>%
+  
+  mutate(
+    year  = year(ym)
+  ) %>%
+  
+  group_by(year) %>%
+  mutate(sales_ref = first(sales)) %>%
+  mutate(diff = sales - sales_ref) %>%
+  mutate(ratio_diff = diff / sales_ref) %>%
+  mutate(pct_diff = scales::percent(ratio_diff, 0.1)) %>%
+  ungroup() %>%
+  
+  View()
+
+# Rolling window calculations ----
+# Zoo package
+library(tidyquant)
+
+bike_orderlines_tbl %>%
+  select(order_date, total_price) %>%
+  mutate(
+    order_date = as.Date(order_date), 
+    year = year(order_date), 
+    month = month(order_date, label = TRUE)
+  ) %>%
+  group_by(month) %>%
+  summarise(sales = sum(total_price)) %>%
+  ungroup() %>%
+  mutate(sales_mean_3 =  zoo::rollmean(sales, 3, na.pad = TRUE, align = "right", fill = 0))
+  
+# Filter time series
+
+bike_orderlines_tbl %>%
+  
+  mutate(order_date = as.Date(order_date)) %>%
+  
+  filter(order_date %>% between(ymd("2011-01-01"), ymd("2011-01-31"))) %>%
+  
+  View()
+
+bike_orderlines_tbl %>%
+  
+  mutate(order_date = as.Date(order_date)) %>%
+  
+  filter(year(order_date) %in% c(2011, 2012)) %>%
+  
+  View()
